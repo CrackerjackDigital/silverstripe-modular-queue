@@ -1,0 +1,17 @@
+---
+Name: modular-queue-config
+---
+Modular\Models\QueuedTask:
+  extensions:
+    - Modular\Fields\Title
+    - Modular\Fields\QueueName
+    - Modular\Fields\QueuedState
+    - Modular\Fields\Outcome        # did the task complete successfully or fail
+    - Modular\Fields\MethodName
+    - Modular\Fields\JSONData       # any parameters that need to be passed to the task when it is called
+    - Modular\Fields\EventDate      # date time task is to start
+    - Modular\Fields\StartDate      # date time it started
+    - Modular\Fields\EndDate        # date time it ended
+Modular\Models\QueuedServiceTask:
+  extensions:
+    - Modular\Fields\ServiceName
