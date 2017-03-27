@@ -35,6 +35,8 @@ class QueuedTaskHandler extends Task {
 	// so operations can be sequenced more easily
 	private static $processing_order = 'ID asc';
 
+
+
 	/**
 	 * @param array $params
 	 *

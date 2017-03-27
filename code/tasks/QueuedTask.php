@@ -1,13 +1,12 @@
 <?php
 namespace Modular\Models;
 
-use Modular\Fields\JSON;
-use Modular\Fields\JSONData;
+use Member;
 use Modular\Fields\MethodName;
+use Modular\Fields\QueuedBy;
 use Modular\Fields\QueuedDate;
 use Modular\Fields\QueueName;
 use Modular\Interfaces\AsyncService;
-use Modular\Interfaces\Service;
 use Modular\Model;
 
 /* abstract */
@@ -29,7 +28,7 @@ class QueuedTask extends Model implements AsyncService {
 	 *
 	 * @return mixed
 	 */
-	public function dispatch( $params = null ) {
+	public static function dispatch( $params = null ) {
 		$task = new static( $params );
 		return $task->write();
 	}
