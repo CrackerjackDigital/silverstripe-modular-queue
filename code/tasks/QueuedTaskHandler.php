@@ -36,18 +36,20 @@ class QueuedTaskHandler extends Task {
 	private static $processing_order = 'ID asc';
 
 	/**
-	 * @param \SS_HTTPRequest $request
+	 * @param array $params
+	 *
+	 * @return mixed|void
 	 */
-	public function execute( $request ) {
-		$queueName = $request->requestVar( self::QueueNameParameter ) ?: static::QueueName;
+	public function execute( $params = [] ) {
+		$queueName = $params[self::QueueNameParameter] ?: static::QueueName;
 
+		// get either Queued or Waiting tasks
 		$tasks = QueuedTask::get()->filter( [
-			QueuedState::Name => QueuedState::Queued,
-			Outcome::Name     => Outcome::NotDetermined,
+			QueuedState::Name => [ QueuedState::Queued, QueuedState::Waiting ]
 		] )->filter(
 			$queueName ? [ QueueName::Name => $queueName ] : []
-		)->limit( $this->batchSize( $request )
-		)->sort( $this->processingOrder( $request ) );
+		)->limit( $this->batchSize( $params )
+		)->sort( $this->processingOrder( $params ) );
 
 		/** @var QueuedTask $task */
 
@@ -61,8 +63,10 @@ class QueuedTaskHandler extends Task {
 			$args       = $task->{JSONData::DecodeMethod}();
 
 			// call the method on the queued task
-			$task->$methodName( $request, $args );
+			$task->$methodName( $params, $args );
 
+			// if the task Outcome is no longer 'NotDetermined' then mark the Queued status as Completed
+			// otherwise mark as 'Waiting' as there may be more to do.
 			if ( $task->{Outcome::Name} == Outcome::NotDetermined ) {
 				$task->update( [ QueuedState::Name => QueuedState::Waiting ] )->write();
 			} else {

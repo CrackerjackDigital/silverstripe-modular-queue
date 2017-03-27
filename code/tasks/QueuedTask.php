@@ -4,13 +4,15 @@ namespace Modular\Models;
 use Modular\Fields\JSON;
 use Modular\Fields\JSONData;
 use Modular\Fields\MethodName;
+use Modular\Fields\QueuedDate;
 use Modular\Fields\QueueName;
+use Modular\Interfaces\AsyncService;
 use Modular\Interfaces\Service;
 use Modular\Model;
 
 /* abstract */
 
-class QueuedTask extends Model implements Service {
+class QueuedTask extends Model implements AsyncService {
 	const QueueName = '';
 
 	// set_time_limit may be called at the start of execute, use this value if so
@@ -21,17 +23,41 @@ class QueuedTask extends Model implements Service {
 	private $timeout = null;
 
 	/**
-	 * Alternate dispatch to call a method on this task the 'service' way. In this case will update the QueuedTask object and write it to the queue.
-	 * When the task is dequeued then the method saved will be called directly via the queue handler.
+	 * Write a new task instance based on params to the Queue for execution later
 	 *
-	 * @param $methodName
+	 * @param null $params
 	 *
 	 * @return mixed
 	 */
-	public function dispatch( $methodName ) {
-		$this->{MethodName::Name} = $methodName;
+	public function dispatch( $params = null ) {
+		$task = new static( $params );
+		return $task->write();
+	}
+
+	/**
+	 * Alternate dispatch to call a method on this task the 'service' way. In this case will update the QueuedTask object and write it to the queue.
+	 * When the task is dequeued then the method saved will be called directly via the queue handler.
+	 *
+	 * @param $params
+	 *
+	 * @return mixed
+	 */
+	public function execute( $params = null ) {
+		$this->{MethodName::Name} = $params;
 		$this->setJSONData(func_get_args());
 		$this->write();
+	}
+
+	public function onBeforeWrite() {
+		parent::onBeforeWrite();
+		if ( $queueName = static::QueueName ) {
+			$this->{QueueName::Name} = $queueName;
+		};
+		if (!$this->isInDB()) {
+			$this->{QueuedDate::Name} = QueuedDate::now();
+			$this->{QueuedBy::field_name('ID')} = Member::currentUserID();
+		}
+
 	}
 
 	/**
@@ -51,10 +77,4 @@ class QueuedTask extends Model implements Service {
 			: $this->timeout );
 	}
 
-	public function onBeforeWrite() {
-		parent::onBeforeWrite();
-		if ( $queueName = static::QueueName ) {
-			$this->{QueueName::Name} = $queueName;
-		};
-	}
 }
