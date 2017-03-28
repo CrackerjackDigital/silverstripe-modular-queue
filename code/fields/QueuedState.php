@@ -2,6 +2,8 @@
 namespace Modular\Fields;
 
 class QueuedState extends StateEngineField {
+	const Name = 'QueuedState';
+
 	const Initialising = 'Initialising';    # setting up, not ready to run
 	const Queued       = 'Queued';          # ready to run
 	const Running      = 'Running';         # actively running
@@ -9,6 +11,16 @@ class QueuedState extends StateEngineField {
 	const Paused       = 'Paused';          # manually paused
 	const Cancelled    = 'Cancelled';       # manually cancelled
 	const Completed    = 'Completed';       # finished processing, check Outcome
+
+	private static $ready_states = [
+		self::Queued,
+	    self::Waiting
+	];
+
+	private static $halt_states = [
+		self::Cancelled,
+	    self::Completed
+	];
 
 	private static $options = [
 		self::Initialising => [

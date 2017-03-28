@@ -5,11 +5,12 @@ use Modular\Fields\EndDate;
 use Modular\Fields\JSONData;
 use Modular\Fields\MethodName;
 use Modular\Fields\Outcome;
+use Modular\Fields\QueuedDate;
 use Modular\Fields\QueuedState;
 use Modular\Fields\QueueName;
 use Modular\Fields\StartDate;
-use Modular\Models\QueuedTask;
 use Modular\Task;
+use Modular\Traits\trackable;
 
 /**
  * QueueHandler scans a queue for QueuedTask and executes them. It normally run by a cron job.
@@ -17,6 +18,7 @@ use Modular\Task;
  * @package Modular\Tasks
  */
 class QueuedTaskHandler extends Task {
+	use trackable;
 	// can be set in derived class to make a QueueHandler which only
 	// processes tasks created with a specific QueueName field
 	const QueueName = '';
@@ -43,11 +45,13 @@ class QueuedTaskHandler extends Task {
 	 * @return mixed|void
 	 */
 	public function execute( $params = [] ) {
+		$this->trackable_start( "QueuedTaskHandler");
 		$queueName = $params[self::QueueNameParameter] ?: static::QueueName;
 
 		// get either Queued or Waiting tasks
 		$tasks = QueuedTask::get()->filter( [
-			QueuedState::Name => [ QueuedState::Queued, QueuedState::Waiting ]
+			QueuedState::Name => QueuedState::ready_states(),
+		    Outcome::Name => Outcome::ready_states()
 		] )->filter(
 			$queueName ? [ QueueName::Name => $queueName ] : []
 		)->limit( $this->batchSize( $params )
@@ -55,29 +59,37 @@ class QueuedTaskHandler extends Task {
 
 		/** @var QueuedTask $task */
 
+		$this->debug_info("running " . $tasks->count() . " tasks");
+
 		foreach ( $tasks as $task ) {
 			$task->update( [
 				QueuedState::Name => QueuedState::Running,
 				StartDate::Name   => StartDate::now(),
 			] )->write();
 
-			$methodName = $task->{MethodName::Name};
-			$args       = $task->{JSONData::DecodeMethod}();
+			$args       = $task->{JSONData::Name};
+			$methodName = $task->{MethodName::Name} ?: 'execute';
 
+			$this->debug_info( "calling $methodName on task '" . $task->Title . "'" );
 			// call the method on the queued task
-			$task->$methodName( $params, $args );
+			$task->$methodName( $args );
 
 			// if the task Outcome is no longer 'NotDetermined' then mark the Queued status as Completed
 			// otherwise mark as 'Waiting' as there may be more to do.
 			if ( $task->{Outcome::Name} == Outcome::NotDetermined ) {
+				$this->debug_info("task not completed, putting into waiting state");
+
 				$task->update( [ QueuedState::Name => QueuedState::Waiting ] )->write();
 			} else {
+				$this->debug_info("task completed");
+
 				$task->update( [
 					QueuedState::Name => QueuedState::Completed,
 					EndDate::Name     => EndDate::now(),
 				] )->write();
 			}
 		}
+		$this->trackable_end();
 	}
 
 	/**

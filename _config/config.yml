@@ -1,18 +1,19 @@
 ---
 Name: modular-queue-config
 ---
-Modular\Models\QueuedTask:
+Modular\Tasks\QueuedTask:
   extensions:
     - Modular\Fields\Title
     - Modular\Fields\QueueName
     - Modular\Fields\QueuedState
     - Modular\Fields\QueuedDate
     - Modular\Fields\Outcome        # did the task complete successfully or fail
+    - Modular\Fields\Message        # a result message, e.g. 'OK', or 'failed because...'
     - Modular\Fields\MethodName     # method to call on task when it is dequeued
     - Modular\Fields\JSONData       # any parameters that need to be passed to the task when it is called
     - Modular\Fields\EventDate      # date time task is to start
     - Modular\Fields\StartDate      # date time it started
     - Modular\Fields\EndDate        # date time it ended
-Modular\Models\QueuedServiceTask:
+Modular\Tasks\QueuedServiceTask:
   extensions:
     - Modular\Fields\ServiceName    # name of service to create and call method on when task is dequeued

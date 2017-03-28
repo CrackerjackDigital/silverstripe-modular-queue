@@ -1,18 +1,20 @@
 <?php
-namespace Modular\Models;
+namespace Modular\Tasks;
 
-use Member;
-use Modular\Fields\MethodName;
-use Modular\Fields\QueuedBy;
-use Modular\Fields\QueuedDate;
+use Modular\Fields\Message;
+use Modular\Fields\Outcome;
+use Modular\Fields\QueuedState;
 use Modular\Fields\QueueName;
 use Modular\Interfaces\AsyncService;
 use Modular\Model;
+use Modular\Traits\trackable;
 
 /* abstract */
 
 class QueuedTask extends Model implements AsyncService {
-	const QueueName = '';
+	use trackable;
+
+	const QueueName = 'No Queue';
 
 	// set_time_limit may be called at the start of execute, use this value if so
 	// default is no time limit, if alot of tasks remain we may need to drop this down to another long time
@@ -20,6 +22,20 @@ class QueuedTask extends Model implements AsyncService {
 	private static $execution_time_limit = 0;
 
 	private $timeout = null;
+
+	private static $singular_name = 'Queued Task';
+	private static $plural_name = 'Queued Tasks';
+
+	private static $summary_fields = [
+		'QueueName'   => 'Queue',
+		'Title'       => 'Title',
+		'QueuedState' => 'Status',
+		'QueuedDate'  => 'Queued Date',
+		'Outcome'     => 'Outcome',
+		'EventDate'   => 'To Run Date',
+		'StartDate'   => 'Started',
+		'EndDate'     => 'Ended',
+	];
 
 	/**
 	 * Write a new task instance based on params to the Queue for execution later
@@ -29,34 +45,56 @@ class QueuedTask extends Model implements AsyncService {
 	 * @return mixed
 	 */
 	public static function dispatch( $params = null ) {
-		$task = new static( $params );
+		$task = new static( array_merge(
+			[
+				QueueName::Name   => static::QueueName,
+				QueuedState::Name => QueuedState::Queued,
+			],
+			$params
+		) );
+
 		return $task->write();
 	}
 
 	/**
-	 * Alternate dispatch to call a method on this task the 'service' way. In this case will update the QueuedTask object and write it to the queue.
-	 * When the task is dequeued then the method saved will be called directly via the queue handler.
+	 * Dummy service interface method required as we can't have abstract models.
 	 *
 	 * @param $params
 	 *
 	 * @return mixed
 	 */
 	public function execute( $params = null ) {
-		$this->{MethodName::Name} = $params;
-		$this->setJSONData(func_get_args());
-		$this->write();
+		return false;
 	}
 
-	public function onBeforeWrite() {
-		parent::onBeforeWrite();
-		if ( $queueName = static::QueueName ) {
-			$this->{QueueName::Name} = $queueName;
-		};
-		if (!$this->isInDB()) {
-			$this->{QueuedDate::Name} = QueuedDate::now();
-			$this->{QueuedBy::field_name('ID')} = Member::currentUserID();
-		}
+	/**
+	 * Update Outcome to 'Success'
+	 */
+	protected function success($message) {
+		$this()->update( [
+			Outcome::Name => Outcome::Success,
+		    Message::Name => $message
+		] )->write();
+	}
 
+	/**
+	 * Update Outcome to 'Failed'
+	 */
+	protected function fail($message) {
+		$this()->update( [
+			Outcome::Name => Outcome::Failed,
+			Message::Name => $message
+		] )->write();
+	}
+
+	/**
+	 * Set QueueName if empty.
+	 */
+	public function onBeforeWrite() {
+		if ( ! $this->{QueueName::Name} ) {
+			$this->{QueueName::Name} = static::QueueName;
+		}
+		parent::onBeforeWrite();
 	}
 
 	/**
