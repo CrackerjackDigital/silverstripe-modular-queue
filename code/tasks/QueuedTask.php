@@ -6,12 +6,13 @@ use Modular\Fields\Outcome;
 use Modular\Fields\QueuedState;
 use Modular\Fields\QueueName;
 use Modular\Interfaces\AsyncService;
+use Modular\Interfaces\Task;
 use Modular\Model;
 use Modular\Traits\trackable;
 
 /* abstract */
 
-class QueuedTask extends Model implements AsyncService {
+class QueuedTask extends Model implements AsyncService, Task {
 	use trackable;
 
 	const QueueName = 'No Queue';
@@ -42,7 +43,8 @@ class QueuedTask extends Model implements AsyncService {
 	 *
 	 * @param null $params
 	 *
-	 * @return mixed
+	 * @return \Modular\Tasks\QueuedTask
+	 * @throws \ValidationException
 	 */
 	public static function dispatch( $params = null ) {
 		$task = new static( array_merge(
@@ -52,19 +54,29 @@ class QueuedTask extends Model implements AsyncService {
 			],
 			$params
 		) );
-
-		return $task->write();
+		$task->write();
+		return $task;
 	}
 
 	/**
 	 * Dummy service interface method required as we can't have abstract models.
 	 *
-	 * @param $params
+	 * @param        $params
+	 *
+	 * @param string $resultMessage
 	 *
 	 * @return mixed
 	 */
-	public function execute( $params = null ) {
+	public function execute( $params = null, &$resultMessage = '' ) {
 		return false;
+	}
+
+	/**
+	 * By default deletes the task.
+	 * @throws \LogicException
+	 */
+	public function archive() {
+		$this->delete();
 	}
 
 	/**

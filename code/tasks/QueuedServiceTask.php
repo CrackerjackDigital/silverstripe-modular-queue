@@ -21,9 +21,11 @@ class QueuedServiceTask extends QueuedTask implements AsyncService {
 	 *
 	 * @param string|null $params
 	 *
+	 * @param string      $resultMessage
+	 *
 	 * @return mixed
 	 */
-	public function execute( $params = null ) {
+	public function execute( $params = null, &$resultMessage = '' ) {
 		$serviceName = $this->{ServiceName::Name};
 		/** @var Service $service */
 		$service = $serviceName::get();
