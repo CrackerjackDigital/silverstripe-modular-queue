@@ -4,9 +4,12 @@ namespace Modular\Tasks;
 use Modular\Fields\Outcome;
 use Modular\Fields\QueuedState;
 use Modular\Fields\QueueName;
+use Modular\Models\QueuedTask;
 
 class QueuedTaskCleaner extends QueueHandler {
-	public function execute( $params = null, &$resultMessage = '' ) {
+	protected $description = "Scans a Queue or all Queues for tasks in a 'completed' state and archives them. Queue Name can be specified with 'qn' query string parameter, batch size with 'bs'";
+
+	public function execute( $params = [], &$resultMessage = '' ) {
 		$queueName = isset( $params[ self::QueueNameParameter ] ) ? $params[ self::QueueNameParameter ] : static::QueueName;
 		// get tasks which have a queued halt state and a halt outcome
 		$tasks = QueuedTask::get()->filter( [

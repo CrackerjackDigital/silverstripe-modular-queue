@@ -22,6 +22,10 @@ class QueuedState extends StateEngineField {
 	    self::Completed
 	];
 
+	private static $running_states = [
+		self::Running
+	];
+
 	private static $options = [
 		self::Initialising => [
 			self::Queued,
@@ -48,4 +52,8 @@ class QueuedState extends StateEngineField {
 		self::Cancelled    => [],
 		self::Completed    => [],
 	];
+
+	public static function running_states() {
+		return static::config()->get('running_states') ?: [];
+	}
 }

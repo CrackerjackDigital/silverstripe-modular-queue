@@ -11,20 +11,25 @@ use Modular\Fields\QueuedDate;
 use Modular\Fields\QueuedState;
 use Modular\Fields\QueueName;
 use Modular\Fields\StartDate;
+use Modular\Models\QueuedTask;
+use Modular\Task;
 use Modular\Traits\trackable;
 
 /**
  * QueueHandler scans a queue for QueuedTask and executes them. It normally run by a cron job.
+ * I will only try and run tasks whose EventDate is less than or equal to the current date.
  *
  * @package Modular\Tasks
  */
 class QueuedTaskHandler extends QueueHandler {
 	use trackable;
 
+	protected $description = "Scans a Queue or all Queues for tasks to run. Queue Name can be specified with 'qn' query string parameter, batch size with 'bs'";
+
 	/**
-	 * @param array  $params
+	 * @param array|\ArrayAccess $params
 	 *
-	 * @param string $resultMessage
+	 * @param string             $resultMessage
 	 *
 	 * @return mixed|void
 	 * @throws \InvalidArgumentException
@@ -37,17 +42,26 @@ class QueuedTaskHandler extends QueueHandler {
 		} else {
 			$this->trackable_start( "QueuedTaskHandler", "Checking all queues" );
 		}
-		$runDate = isset( $params['rd'] ) ? $params['rd'] : 'NOW()';
+		if ( isset( $params['rd'] ) && ( $time = strtotime( $params['rd'] ) ) ) {
+			$runDate = date( 'Y-m-d h:i:s', $time );
+		} else {
+			$runDate = date( 'Y-m-d h:i:s' );
+		}
 
 		// get either Queued or Waiting tasks
-		$tasks = QueuedTask::get()->filter( [
-			QueuedState::Name => QueuedState::ready_states(),
-			Outcome::Name     => Outcome::ready_states(),
-		] )
-		->filter( $queueName ? [ QueueName::Name => $queueName ] : [] )
-		->where( EventDate::Name . " <= $runDate " )
-		->limit( $this->batchSize( $params ) )
-		->sort( $this->processingOrder( $params ) );
+		$tasks = QueuedTask::get()
+		                   ->filter( EventDate::Name . ':LessThanOrEqual', $runDate )
+		                   ->filter( QueuedState::field_name(), QueuedState::ready_states() )
+		                   ->limit( $this->batchSize( $params ) )
+		                   ->sort( $this->processingOrder( $params ) );
+
+		if ( $queueName ) {
+			$tasks = $tasks->filter( [
+				QueueName::Name => $queueName,
+			] );
+		}
+
+		$sql = $tasks->sql();
 
 		/** @var QueuedTask $task */
 
@@ -57,35 +71,31 @@ class QueuedTaskHandler extends QueueHandler {
 
 		$tally = 0;
 		foreach ( $tasks as $task ) {
-			$task->update( [
-				QueuedState::Name => QueuedState::Running,
-				StartDate::Name   => StartDate::now(),
-			] )->write();
+			if ( ! $task->canRun() ) {
+				// skip it
+				continue;
+			}
+			$task->markRunning();
 
 			$args       = $task->{JSONData::Name};
-			$methodName = $task->{MethodName::Name} ?: 'execute';
+			$methodName = $task->{MethodName::Name};
 
 			$this->debug_info( "calling $methodName on task '" . $task->Title . "'" );
-			// call the method on the queued task
-			$task->$methodName( $args );
+			// call the method on the queued task, and handle the returned result
 
-			// if the task Outcome is no longer 'NotDetermined' then mark the Queued status as Completed
-			// otherwise mark as 'Waiting' as there may be more to do.
-			if ( $task->{Outcome::Name} == Outcome::NotDetermined ) {
-				$this->debug_info( "task not completed, putting into waiting state" );
-
-				$task->update( [ QueuedState::Name => QueuedState::Waiting ] )->write();
-			} else {
-				$this->debug_info( "task completed" );
-
-				$task->update( [
-					QueuedState::Name => QueuedState::Completed,
-					EndDate::Name     => EndDate::now(),
-				] )->write();
+			try {
+				if ( $task->$methodName( $args, $resultMessage ) ) {
+					$task->markComplete( Outcome::Success );
+				} else {
+					$task->markComplete( Outcome::Failed );
+				}
+			} catch ( \Exception $e ) {
+				$task->markComplete( Outcome::Error );
 			}
+
 			$tally ++;
 		}
-		$resultMessage = "processed $tally tasks of $count";
+		$resultMessage = $resultMessage ?: "processed $tally tasks of $count";
 		$this->trackable_end( $resultMessage );
 	}
 

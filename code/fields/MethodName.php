@@ -6,4 +6,5 @@ use Modular\Types\StringType;
 
 class MethodName extends TypedField implements StringType {
 	const Name = 'MethodName';
+
 }

@@ -1,4 +1,5 @@
 <?php
+
 namespace Modular\Tasks;
 
 use Modular\Task;
@@ -22,23 +23,39 @@ abstract class QueueHandler extends Task {
 	// so operations can be sequenced more easily
 	private static $processing_order = 'ID asc';
 
+	// override self.QueueName, used if no queue name is passed when handler is run
+	private static $queue_name = '';
+
 	/**
 	 * Return the processing order (sort by clause) from passed parameters or config.processing_order
 	 *
-	 * @param $request
+	 * @param array|\ArrayAccess $request
 	 *
-	 * @return int
+	 * @return string
+	 */
+	protected function queueName( $request = [] ) {
+		return ( isset( $request[ self::QueueNameParameter ] ) )
+			? $request[ self::QueueNameParameter ]
+			: ( $this->config()->get( 'queue_name' ) ?: static::QueueName );
+	}
+
+	/**
+	 * Return the processing order (sort by clause) from passed parameters or config.processing_order
+	 *
+	 * @param array|\ArrayAccess $request
+	 *
+	 * @return string
 	 */
 	protected function processingOrder( $request ) {
 		return ( isset( $request[ self::ProcessingOrderParameter ] ) && is_numeric( $request[ self::ProcessingOrderParameter ] ) )
-			? (int) $request[ self::ProcessingOrderParameter ]
-			: (int) $this->config()->get( 'processing_order' );
+			? $request[ self::ProcessingOrderParameter ]
+			: $this->config()->get( 'processing_order' );
 	}
 
 	/**
 	 * Return the batch size (limit clause) from passed parameters or config.batch_size
 	 *
-	 * @param $request
+	 * @param array|\ArrayAccess $request
 	 *
 	 * @return int
 	 */

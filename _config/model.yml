@@ -1,7 +1,7 @@
 ---
-Name: modular-queue-config
+Name: modular-queue-model
 ---
-Modular\Tasks\QueuedTask:
+Modular\Models\QueuedTask:
   extensions:
     - Modular\Fields\Title
     - Modular\Fields\QueueName
@@ -14,6 +14,9 @@ Modular\Tasks\QueuedTask:
     - Modular\Fields\EventDate      # date time task is to start
     - Modular\Fields\StartDate      # date time it started
     - Modular\Fields\EndDate        # date time it ended
-Modular\Tasks\QueuedServiceTask:
+    - Modular\Fields\CreatedBy      # who created it (current member or could be null if by not-logged in task)
+    - Modular\Fields\UpdatedBy      # who updated it (current member or could be null if by not-logged in task)
+    - Modular\Fields\ArchivedState  # simple archive tracker if we don't just delete when we archive
+Modular\Models\QueuedServiceTask:
   extensions:
     - Modular\Fields\ServiceName    # name of service to create and call method on when task is dequeued
