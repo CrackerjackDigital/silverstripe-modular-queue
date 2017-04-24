@@ -2,18 +2,11 @@
 
 namespace Modular\Tasks;
 
-use Modular\Fields\EndDate;
-use Modular\Fields\EventDate;
-use Modular\Fields\JSONData;
-use Modular\Fields\MethodName;
+use Modular\Fields\ModelRef;
 use Modular\Fields\Outcome;
-use Modular\Fields\QueuedDate;
 use Modular\Fields\QueuedState;
 use Modular\Fields\QueueName;
-use Modular\Fields\StartDate;
 use Modular\Models\QueuedTask;
-use Modular\Task;
-use Modular\Traits\trackable;
 
 /**
  * QueueHandler scans a queue for QueuedTask and executes them. It normally run by a cron job.
@@ -21,82 +14,77 @@ use Modular\Traits\trackable;
  *
  * @package Modular\Tasks
  */
-class QueuedTaskHandler extends QueueHandler {
-	use trackable;
+abstract class QueuedTaskHandler extends QueueHandler {
 
 	protected $description = "Scans a Queue or all Queues for tasks to run. Queue Name can be specified with 'qn' query string parameter, batch size with 'bs'";
 
 	/**
-	 * @param array|\ArrayAccess $params
+	 * Returns a list of QueuedTask models filtered by parameters passed.
 	 *
-	 * @param string             $resultMessage
+	 * @param array  $params
 	 *
-	 * @return mixed|void
+	 * @param string $graceDateField use this field, e.g. 'EndDate' or 'EventDate'
+	 *                               to filter by grace date from parameters
+	 *
+	 * @return \DataList
 	 * @throws \InvalidArgumentException
-	 * @throws \ValidationException
 	 */
-	public function execute( $params = [], &$resultMessage = '' ) {
-		$queueName = isset( $params[ self::QueueNameParameter ] ) ? $params[ self::QueueNameParameter ] : static::QueueName;
-		if ( $queueName ) {
-			$this->trackable_start( "QueuedTaskHandler", trim( "Checking queue $queueName" ) );
-		} else {
-			$this->trackable_start( "QueuedTaskHandler", "Checking all queues" );
-		}
-		if ( isset( $params['rd'] ) && ( $time = strtotime( $params['rd'] ) ) ) {
-			$runDate = date( 'Y-m-d h:i:s', $time );
-		} else {
-			$runDate = date( 'Y-m-d h:i:s' );
-		}
-
-		// get either Queued or Waiting tasks
+	public function tasks( $params = [] ) {
+		// get tasks which have a queued halt state and a halt outcome
 		$tasks = QueuedTask::get()
-		                   ->filter( EventDate::Name . ':LessThanOrEqual', $runDate )
-		                   ->filter( QueuedState::field_name(), QueuedState::ready_states() )
-		                   ->limit( $this->batchSize( $params ) )
 		                   ->sort( $this->processingOrder( $params ) );
 
-		if ( $queueName ) {
-			$tasks = $tasks->filter( [
-				QueueName::Name => $queueName,
-			] );
-		}
-
-		$sql = $tasks->sql();
-
-		/** @var QueuedTask $task */
-
-		$count = $tasks->count();
-
-		$this->debug_info( "running $count tasks" );
-
-		$tally = 0;
-		foreach ( $tasks as $task ) {
-			if ( ! $task->canRun() ) {
-				// skip it
-				continue;
-			}
-			$task->markRunning();
-
-			$args       = $task->{JSONData::Name};
-			$methodName = $task->{MethodName::Name};
-
-			$this->debug_info( "calling $methodName on task '" . $task->Title . "'" );
-			// call the method on the queued task, and handle the returned result
-
-			try {
-				if ( $task->$methodName( $args, $resultMessage ) ) {
-					$task->markComplete( Outcome::Success );
-				} else {
-					$task->markComplete( Outcome::Failed );
-				}
-			} catch ( \Exception $e ) {
-				$task->markComplete( Outcome::Error );
+		if ( isset( $params[ static::TaskIDParameter ] ) ) {
+			if ( is_int( $params[ static::TaskIDParameter ] ) ) {
+				$tasks = $tasks->byID(
+					$params[ static::TaskIDParameter ]
+				);
 			}
 
-			$tally ++;
+		} elseif ( isset( $params[ static::ModelRefIDParameter ] ) ) {
+			if ( is_int( $params[ static::ModelRefIDParameter ] ) ) {
+				$tasks = $tasks->filter( [
+					ModelRef::field_name() => $params[ static::ModelRefIDParameter ],
+				] );
+			}
+		} else {
+			if ( isset( $params[ static::ModelRefIDParameter ] ) && is_int( $params[ static::ModelRefIDParameter ] ) ) {
+				$tasks = $tasks->filter( [
+					ModelRef::Name => $params[ static::TaskIDParameter ],
+				] );
+			}
+
+			// filter by supplied or default QueuedState values
+			$queuedStates = $this->queuedStates( $params );
+			if ( $queuedStates && ! $this->isAll( $queuedStates ) ) {
+				$tasks = $tasks->filter( [
+					QueuedState::Name => $queuedStates,
+				] );
+			}
+
+			$outcomes = $this->outcomes( $params );
+			if ( $outcomes && ! $this->isAll( $outcomes ) ) {
+				$tasks = $tasks->filter( [
+					Outcome::Name => $outcomes,
+				] );
+			}
+
+			if ( $queueName = $this->queueName( $params ) ) {
+				$tasks = $tasks->filter( [
+					QueueName::Name => $queueName,
+				] );
+			}
+
+			$gracePeriodField = static::GracePeriodField;
+			if ( $gracePeriodField && ( $graceDate = $this->graceDate( $params ) ) ) {
+				$tasks = $tasks->filter( [
+					$gracePeriodField::field_name( ':LessThan' ) => $graceDate,
+				] );
+			}
+			$tasks = $tasks->limit( $this->batchSize( $params ) );
 		}
-		$resultMessage = $resultMessage ?: "processed $tally tasks of $count";
-		$this->trackable_end( $resultMessage );
+
+		return $tasks;
 	}
 
 }

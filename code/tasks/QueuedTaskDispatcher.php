@@ -11,7 +11,7 @@ use Modular\Task;
  * @package Modular\Queue
  */
 abstract class QueuedTaskDispatcher extends Task {
-	// set in dervided class to the the name of the Task to enqueue
+	// set in derived class to the the name of the Task to enqueue
 	const TaskName = '';
 
 	// can be set in derived class to make a QueueHandler which only
