@@ -58,16 +58,52 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 		'Outcome',
 		'EventDate',
 		'StartDate',
-		'EndDate'
+		'EndDate',
 	];
 
-	private static $default_sort = 'QueuedDate ASC';
+	private static $default_sort = '"QueuedDate" DESC';
 
 	// strtotime compatible grace period between EndDate and canArchive returns true
 	private static $archive_grace_period = '+1 days';
 
 	// delete when archive is called if we canArchive, otherwise an update is performed
 	private static $delete_on_archive = true;
+
+	// add fields here to check to see if a task should be written as a 'Duplicate' instead of 'Queued' when it is
+	// created if a task already exists with the field values in a non-completed state. All fields must match to
+	// be decided a duplicate.
+	private static $unique_fields = [
+		\Modular\Fields\Title::Name      => true,
+		\Modular\Fields\MethodName::Name => true,
+	];
+
+	/**
+	 * Checks constraints to see if this task can be dispatched, e.g. that there are no other incomplete tasks
+	 * which have the same config.unique_fields values.
+	 */
+	public function isDuplicate() {
+		$duplicate = false;
+
+		if ( $uniqueFields = $this->config()->get( 'unique_fields' ) ) {
+			$fields = array_intersect_key(
+				$this->toMap(),
+				array_filter( $uniqueFields )
+			);
+			if ( $fields ) {
+				$haltStates = QueuedState::halt_states();
+
+				$existing = static::get()
+				                  ->filter( $fields )
+				                  ->exclude( [
+					                  QueuedState::field_name() => $haltStates,
+				                  ] );
+
+				$duplicate = $existing->count() > 0;
+			}
+		}
+
+		return $duplicate;
+	}
 
 	/**
 	 * Returns whether task can be archived given state and outcome.
@@ -103,6 +139,12 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 				MethodName::Name => $this->{MethodName::Name} ?: $this->defaultMethodName(),
 				QueuedDate::Name => date( 'Y-m-d h:i:s' ),
 			] );
+
+			if ( $this->isDuplicate() ) {
+				$this->update( [
+					QueuedState::field_name() => QueuedState::Duplicate,
+				] );
+			}
 		}
 	}
 
