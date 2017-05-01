@@ -77,6 +77,19 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 		\Modular\Fields\MethodName::Name => true,
 	];
 
+	public function uniqueFields() {
+		if ($fields = array_keys(array_filter(static::config()->get('unique_fields') ?: []))) {
+			foreach ($fields as $index => $fieldName) {
+				if ($this->hasOneComponent( $fieldName)) {
+					$fields[$index] = $fieldName . 'ID';
+				} else {
+					$fields[$index] = $fieldName;
+				}
+			}
+		}
+		return $fields;
+	}
+
 	/**
 	 * Checks constraints to see if this task can be dispatched, e.g. that there are no other incomplete tasks
 	 * which have the same config.unique_fields values.
@@ -84,10 +97,11 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	public function isDuplicate() {
 		$duplicate = false;
 
-		if ( $uniqueFields = $this->config()->get( 'unique_fields' ) ) {
+		if ( $uniqueFields = $this->uniqueFields()) {
+			// intersect on key so flip the array, value will come from map of model fields
 			$fields = array_intersect_key(
 				$this->toMap(),
-				array_filter( $uniqueFields )
+				array_flip($uniqueFields)
 			);
 			if ( $fields ) {
 				$haltStates = QueuedState::halt_states();
