@@ -32,7 +32,7 @@ class QueuedTaskRunner extends QueuedTaskHandler {
 
 		$tasks = $this->tasks( $params );
 
-		$sql = $tasks->sql();
+		$this->debug_trace($tasks->sql());
 
 		/** @var QueuedTask $task */
 

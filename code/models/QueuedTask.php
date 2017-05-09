@@ -2,7 +2,9 @@
 
 namespace Modular\Models;
 
+use Director;
 use Modular\Exceptions\Exception;
+use Modular\Exceptions\NotImplemented;
 use Modular\Fields\ArchivedState;
 use Modular\Fields\EndDate;
 use Modular\Fields\Message;
@@ -17,6 +19,7 @@ use Modular\Interfaces\QueuedTask as QueuedTaskInterface;
 use Modular\Model;
 use Modular\Traits\timeout;
 use Modular\Traits\trackable;
+use Permission;
 
 /**
  * QueuedTask is a model which represents a task and it's data which is written
@@ -143,6 +146,16 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	}
 
 	/**
+	 * Can the thing this task does be done now? This is distinct from canRun
+	 * which deals with scheduling.
+	 *
+	 * @return bool
+	 */
+	public function canExecute() {
+		return Director::is_cli() || Permission::check('ADMIN');
+	}
+
+	/**
 	 * Set the QueueName from self.QueueName
 	 */
 	public function onBeforeWrite() {
@@ -163,7 +176,20 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	}
 
 	/**
-	 * Write this task to a Queue in a 'ready to run' state for execution later.
+	 * Map params so they can be saved to this model for use later when it is executed.
+	 * When overridden an exception can be thrown in it and will be caught before the task is enqueued.
+	 *
+	 * @param array  $params
+	 *
+	 * @return array - by default whatever was passed
+	 */
+	protected function mapParams( $params = [] ) {
+		return $params;
+	}
+
+	/**
+	 * Write this task to a Queue in a 'ready to run' state for execution later. This
+	 * will map any incoming parameters to fields on the model via the mapParams method.
 	 *
 	 * @param array|\ArrayAccess $params
 	 *
@@ -175,11 +201,9 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 			[   // some defaults, may be overridden by params
 			    QueueName::Name => static::QueueName,
 			],
-			$params
+			$this->mapParams($params)
 		) );
-		$this->markReady();
-
-		return $this;
+		return $this->markReady();
 	}
 
 	/**
@@ -192,7 +216,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * @throws \Modular\Exceptions\Exception
 	 */
 	public function execute( $params = [], &$resultMessage = '' ) {
-		throw new Exception( "execute method not provided for Queued Task, it needs one" );
+		throw new NotImplemented( "abstract execute method not implemented for base QueuedTask, implement one in class " . get_class($this) );
 	}
 
 	/**

@@ -4,9 +4,13 @@ namespace Modular\Tasks;
 
 use Modular\Fields\Outcome;
 use Modular\Fields\QueuedState;
+use Modular\Fields\QueuePriority;
 use Modular\Task;
+use Modular\Traits\params;
 
 abstract class QueueHandler extends Task {
+	use params;
+
 	// can be set in derived class to make a QueueHandler which only
 	// processes tasks created with a specific QueueName field
 	const QueueName = '';
@@ -44,9 +48,9 @@ abstract class QueueHandler extends Task {
 	// only jobs older than this will be processed (requires also the GracePeriodField be set)
 	private static $grace_period = '-2 days';
 
-	// by default we process in order they were added to the queue
+	// by default we process in order they were added to the queue (fifo)
 	// so operations can be sequenced more easily
-	private static $processing_order = 'ID asc';
+	private static $processing_order = [ 'ID' => 'ASC' ];
 
 	// override self.QueueName, used if no queue name is passed when handler is run
 	private static $queue_name = '';
@@ -66,25 +70,32 @@ abstract class QueueHandler extends Task {
 	 * @return array
 	 */
 	protected function queueName( $params = [] ) {
-		return $this->parse(
-			( isset( $params[ self::QueueNameParameter ] ) )
-				? $params[ self::QueueNameParameter ]
-				: ( $this->config()->get( 'queue_name' ) ?: static::QueueName )
+		return $this->param(
+			$params,
+			self::QueueNameParameter,
+			$this->config()->get( 'queue_name' ) ?: static::QueueName
 		);
 	}
 
 	/**
-	 * Return the processing order (sort by clauses) from passed parameters or config.processing_order
+	 * Return the processing order (sort by clauses) from passed parameters or config.processing_order.
+	 * Always merges in QueuePriority sort ascending first so lower priorities come first.
 	 *
 	 * @param array|\ArrayAccess $params
 	 *
 	 * @return array
 	 */
 	protected function processingOrder( $params ) {
-		return $this->parse(
-			( isset( $params[ self::ProcessingOrderParameter ] ) && is_numeric( $params[ self::ProcessingOrderParameter ] ) )
-				? $params[ self::ProcessingOrderParameter ]
-				: $this->config()->get( 'processing_order' )
+		$secondary = $this->param(
+			$params,
+			self::ProcessingOrderParameter,
+			$this->config()->get( 'processing_order' )
+		);
+		return array_merge(
+			[
+				$this->{QueuePriority::Name} => 'ASC'
+			],
+			$secondary
 		);
 	}
 
@@ -94,12 +105,11 @@ abstract class QueueHandler extends Task {
 	 * @return array
 	 */
 	protected function queuedStates( $params ) {
-		return $this->parse(
-			isset( $params[ self::QueuedStatesParameter ] )
-				? $params[ self::QueuedStatesParameter ]
-				: QueuedState::ready_states()
+		return $this->param(
+			$params,
+			self::QueuedStatesParameter,
+			QueuedState::ready_states()
 		);
-
 	}
 
 	/**
@@ -109,10 +119,10 @@ abstract class QueueHandler extends Task {
 	 */
 	protected function outcomes( $params ) {
 		// filter by supplied or default Outcome values
-		return $this->parse(
-			isset( $params[ self::OutcomesParameter ] )
-				? $params[ self::OutcomesParameter ]
-				: Outcome::ready_states()
+		return $this->param(
+			$params,
+			self::OutcomesParameter,
+			Outcome::ready_states()
 		);
 
 	}
@@ -125,9 +135,11 @@ abstract class QueueHandler extends Task {
 	 * @return int
 	 */
 	protected function batchSize( $params ) {
-		return ( isset( $params[ self::BatchSizeParameter ] ) && is_numeric( $params[ self::BatchSizeParameter ] ) )
-			? (int) $params[ self::BatchSizeParameter ]
-			: (int) $this->config()->get( 'batch_size' );
+		return (int)$this->param(
+			$params,
+			self::BatchSizeParameter,
+			$this->config()->get( 'batch_size' )
+		);
 	}
 
 	/**
@@ -166,21 +178,4 @@ abstract class QueueHandler extends Task {
 			: ( $parameterValue == $this->config()->get( 'wildcard_all' ) );
 	}
 
-	/**
-	 * Parse passed parameter by config.parameter_separator (like a csv string).
-	 *
-	 * @param string $parameter
-	 *
-	 * @return array
-	 */
-	protected function parse( $parameter ) {
-		return is_array( $parameter )
-			? $parameter
-			: array_filter(
-				explode(
-					$this->config()->get( 'parameter_separator' ),
-					$parameter
-				)
-			);
-	}
 }
