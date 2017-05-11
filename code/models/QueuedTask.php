@@ -81,15 +81,16 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	];
 
 	public function uniqueFields() {
-		if ($fields = array_keys(array_filter(static::config()->get('unique_fields') ?: []))) {
-			foreach ($fields as $index => $fieldName) {
-				if ($this->hasOneComponent( $fieldName)) {
-					$fields[$index] = $fieldName . 'ID';
+		if ( $fields = array_keys( array_filter( static::config()->get( 'unique_fields' ) ?: [] ) ) ) {
+			foreach ( $fields as $index => $fieldName ) {
+				if ( $this->hasOneComponent( $fieldName ) ) {
+					$fields[ $index ] = $fieldName . 'ID';
 				} else {
-					$fields[$index] = $fieldName;
+					$fields[ $index ] = $fieldName;
 				}
 			}
 		}
+
 		return $fields;
 	}
 
@@ -100,11 +101,11 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	public function isDuplicate() {
 		$duplicate = false;
 
-		if ( $uniqueFields = $this->uniqueFields()) {
+		if ( $uniqueFields = $this->uniqueFields() ) {
 			// intersect on key so flip the array, value will come from map of model fields
 			$fields = array_intersect_key(
 				$this->toMap(),
-				array_flip($uniqueFields)
+				array_flip( $uniqueFields )
 			);
 			if ( $fields ) {
 				$haltStates = QueuedState::halt_states();
@@ -152,7 +153,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * @return bool
 	 */
 	public function canExecute() {
-		return Director::is_cli() || Permission::check('ADMIN');
+		return Director::is_cli() || Permission::check( 'ADMIN' );
 	}
 
 	/**
@@ -179,7 +180,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * Map params so they can be saved to this model for use later when it is executed.
 	 * When overridden an exception can be thrown in it and will be caught before the task is enqueued.
 	 *
-	 * @param array  $params
+	 * @param array $params
 	 *
 	 * @return array - by default whatever was passed
 	 */
@@ -199,10 +200,12 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	public function dispatch( $params = [] ) {
 		$this->update( array_merge(
 			[   // some defaults, may be overridden by params
-			    QueueName::Name => static::QueueName,
+			    QueueName::Name   => static::QueueName,
+			    QueuedState::Name => QueuedState::Queued,
 			],
-			$this->mapParams($params)
+			$this->mapParams( $params )
 		) );
+
 		return $this->markReady();
 	}
 
@@ -216,7 +219,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * @throws \Modular\Exceptions\Exception
 	 */
 	public function execute( $params = [], &$resultMessage = '' ) {
-		throw new NotImplemented( "abstract execute method not implemented for base QueuedTask, implement one in class " . get_class($this) );
+		throw new NotImplemented( "abstract execute method not implemented for base QueuedTask, implement one in class " . get_class( $this ) );
 	}
 
 	/**
