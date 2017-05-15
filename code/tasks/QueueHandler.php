@@ -35,7 +35,7 @@ abstract class QueueHandler extends Task {
 	const QueuedStatesParameter = 'qs';
 
 	// filter queue by items with an Outcome provided by this parameter
-	const OutcomesParameter = 'o';
+	const OutcomesParameter = 'oc';
 
 	// process this specific task ID only, all other filters will be ignored so caution
 	const TaskIDParameter = 'tid';
@@ -86,14 +86,14 @@ abstract class QueueHandler extends Task {
 	 * @return array
 	 */
 	protected function processingOrder( $params ) {
-		$secondary = $this->param(
+		$secondary = $this->paramArray(
 			$params,
 			self::ProcessingOrderParameter,
 			$this->config()->get( 'processing_order' )
 		);
 		return array_merge(
 			[
-				$this->{QueuePriority::Name} => 'ASC'
+				QueuePriority::Name => 'ASC'
 			],
 			$secondary
 		);
@@ -105,7 +105,7 @@ abstract class QueueHandler extends Task {
 	 * @return array
 	 */
 	protected function queuedStates( $params ) {
-		return $this->param(
+		return $this->paramArray(
 			$params,
 			self::QueuedStatesParameter,
 			QueuedState::ready_states()
@@ -119,7 +119,7 @@ abstract class QueueHandler extends Task {
 	 */
 	protected function outcomes( $params ) {
 		// filter by supplied or default Outcome values
-		return $this->param(
+		return $this->paramArray(
 			$params,
 			self::OutcomesParameter,
 			Outcome::ready_states()

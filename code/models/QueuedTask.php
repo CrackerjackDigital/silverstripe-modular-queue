@@ -259,9 +259,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * @throws \ValidationException
 	 */
 	public function markSuccessful( $message = '' ) {
-		if ( $message ) {
-			$this->{Message::Name} = $message;
-		}
+		$this->{Message::Name} = $message ?: 'OK';
 		$this->markComplete( Outcome::Success );
 	}
 
@@ -273,9 +271,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * @throws \ValidationException
 	 */
 	public function markFailed( $message = '' ) {
-		if ( $message ) {
-			$this->{Message::Name} = $message;
-		}
+		$this->{Message::Name} = $message ?: 'Failed';
 		$this->markComplete( Outcome::Failed );
 	}
 

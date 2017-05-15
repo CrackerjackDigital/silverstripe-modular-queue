@@ -7,6 +7,7 @@ Modular\Models\QueuedTask:
     - Modular\Fields\QueueName
     - Modular\Fields\QueuedState
     - Modular\Fields\QueuedDate
+    - Modular\Fields\QueuePriority  # first sort, then ID by default, lower comes first
     - Modular\Fields\Outcome        # did the task complete successfully or fail
     - Modular\Fields\Message        # a result message, e.g. 'OK', or 'failed because...'
     - Modular\Fields\MethodName     # method to call on task when it is dequeued
