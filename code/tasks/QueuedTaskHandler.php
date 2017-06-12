@@ -21,13 +21,12 @@ abstract class QueuedTaskHandler extends QueueHandler {
 	/**
 	 * Returns a list of QueuedTask models filtered by parameters passed.
 	 *
-	 * @param array  $params
-	 *
-	 * @param string $graceDateField use this field, e.g. 'EndDate' or 'EventDate'
-	 *                               to filter by grace date from parameters
+	 * @param array $params
 	 *
 	 * @return \DataList
 	 * @throws \InvalidArgumentException
+	 * @throws \Modular\Exceptions\Debug
+	 *
 	 */
 	public function tasks( $params = [] ) {
 		// get tasks which have a queued halt state and a halt outcome
@@ -39,6 +38,7 @@ abstract class QueuedTaskHandler extends QueueHandler {
 				$tasks = $tasks->byID(
 					$params[ static::TaskIDParameter ]
 				);
+				$this->debug_info( "Task ID: " . $params[ static::ModelRefIDParameter ] );
 			}
 
 		} elseif ( isset( $params[ static::ModelRefIDParameter ] ) ) {
@@ -46,12 +46,14 @@ abstract class QueuedTaskHandler extends QueueHandler {
 				$tasks = $tasks->filter( [
 					ModelRef::field_name() => $params[ static::ModelRefIDParameter ],
 				] );
+				$this->debug_info( "Task ID: " . $params[ static::ModelRefIDParameter ] );
 			}
 		} else {
 			if ( isset( $params[ static::ModelRefIDParameter ] ) && is_int( $params[ static::ModelRefIDParameter ] ) ) {
 				$tasks = $tasks->filter( [
 					ModelRef::Name => $params[ static::TaskIDParameter ],
 				] );
+				$this->debug_info( "Task ID: " . $params[ static::TaskIDParameter ] );
 			}
 
 			// filter by supplied or default QueuedState values
@@ -60,6 +62,7 @@ abstract class QueuedTaskHandler extends QueueHandler {
 				$tasks = $tasks->filter( [
 					QueuedState::Name => $queuedStates,
 				] );
+				$this->debug_info( "Queued States: " . implode(',', $queuedStates) );
 			}
 
 			$outcomes = $this->outcomes( $params );
@@ -67,6 +70,7 @@ abstract class QueuedTaskHandler extends QueueHandler {
 				$tasks = $tasks->filter( [
 					Outcome::Name => $outcomes,
 				] );
+				$this->debug_info( "Outcomes: " . implode(',', $outcomes) );
 			}
 
 			if ( $queueName = $this->queueName( $params ) ) {
@@ -80,6 +84,7 @@ abstract class QueuedTaskHandler extends QueueHandler {
 				$tasks = $tasks->filter( [
 					$gracePeriodField::field_name( ':LessThan' ) => $graceDate,
 				] );
+				$this->debug_info( "Grace Date: " . $graceDate);
 			}
 			$tasks = $tasks->limit( $this->batchSize( $params ) );
 		}

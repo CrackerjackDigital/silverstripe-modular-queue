@@ -15,7 +15,7 @@ class QueuedTaskRunner extends QueuedTaskHandler {
 
 	private static $grace_period = 'Now';
 
-	protected $description = "Runs queued tasks which match passed parameters. Should be setup to run on a regular basis e.g. via cron.";
+	protected $description = "Runs queued tasks which match passed parameters. Should be setup to run on a regular basis e.g. via cron or bin/runtasks.sh with appropriate environment variables set.";
 
 	/**
 	 * @param array|\ArrayAccess $params

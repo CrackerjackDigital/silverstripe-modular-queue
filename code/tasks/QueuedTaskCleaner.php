@@ -2,6 +2,7 @@
 
 namespace Modular\Tasks;
 
+use Controller;
 use Modular\Fields\EndDate;
 use Modular\Models\QueuedTask;
 
@@ -12,7 +13,7 @@ class QueuedTaskCleaner extends QueuedTaskHandler {
 	// override with GracePeriodParameter on query string
 	private static $grace_period = '-5 days';
 
-	protected $description = "Scans a Queue or all Queues for tasks in a 'completed' state and archives them. Queue Name can be specified with 'qn' query string parameter, batch size with 'bs'";
+	protected $description;
 
 	public function execute( $params = [], &$resultMessage = '' ) {
 		$tasks = $this->tasks($params);
@@ -28,5 +29,10 @@ class QueuedTaskCleaner extends QueuedTaskHandler {
 			// force an archive of task
 			$task->archive([], true);
 		}
+	}
+
+	public function getDescription() {
+		$host = \Director::protocolAndHost();
+		return "Scans a Queue or all Queues for tasks in a 'completed' state and archives them. Queue Name can be specified with 'qn' query string parameter, batch size with 'bs'. To clear 1000 queued tasks: $host/dev/tasks/Modular-Tasks-QueuedTaskCleaner&qs=*&o=*&gp=*&bs=1000";
 	}
 }
