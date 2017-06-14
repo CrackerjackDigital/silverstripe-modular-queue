@@ -156,9 +156,9 @@ abstract class QueueHandler extends Task {
 			? $params[ self::GracePeriodParameter ]
 			: $this->config()->get( 'grace_period' );
 
-		if ( $gracePeriod && ! $this->isAll( $gracePeriod ) ) {
+		if ( $gracePeriod && ! $this->isAllWildcard( $gracePeriod ) ) {
 			if ( $graceTime = strtotime( $gracePeriod ) ) {
-				$graceDate = date( 'Y-m-d h:i:s', $graceTime );
+				$graceDate = date( 'Y-m-d H:i:s', $graceTime );
 			}
 		}
 
@@ -172,7 +172,7 @@ abstract class QueueHandler extends Task {
 	 *
 	 * @return bool
 	 */
-	protected function isAll( $parameterValue ) {
+	protected function isAllWildcard( $parameterValue ) {
 		return is_array( $parameterValue )
 			? ( reset( $parameterValue ) == $this->config()->get( 'wildcard_all' ) )
 			: ( $parameterValue == $this->config()->get( 'wildcard_all' ) );

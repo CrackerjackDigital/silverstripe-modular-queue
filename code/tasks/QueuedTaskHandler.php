@@ -56,37 +56,48 @@ abstract class QueuedTaskHandler extends QueueHandler {
 				$this->debug_info( "Task ID: " . $params[ static::TaskIDParameter ] );
 			}
 
-			// filter by supplied or default QueuedState values
-			$queuedStates = $this->queuedStates( $params );
-			if ( $queuedStates && ! $this->isAll( $queuedStates ) ) {
-				$tasks = $tasks->filter( [
-					QueuedState::Name => $queuedStates,
-				] );
-				$this->debug_info( "Queued States: " . implode(',', $queuedStates) );
-			}
-
-			$outcomes = $this->outcomes( $params );
-			if ( $outcomes && ! $this->isAll( $outcomes ) ) {
-				$tasks = $tasks->filter( [
-					Outcome::Name => $outcomes,
-				] );
-				$this->debug_info( "Outcomes: " . implode(',', $outcomes) );
-			}
-
-			if ( $queueName = $this->queueName( $params ) ) {
+			$queueName = $this->queueName( $params );
+			if ( $queueName ) {
 				$tasks = $tasks->filter( [
 					QueueName::Name => $queueName,
 				] );
 			}
+			$this->debug_info( "Queue Name: " . implode( ',', $queueName ?: [ '*' ] ) );
+
+			// filter by supplied or default QueuedState values
+			$queuedStates = $this->queuedStates( $params );
+			if ( $queuedStates ) {
+				if ( ! $this->isAllWildcard( $queuedStates ) ) {
+					$tasks = $tasks->filter( [
+						QueuedState::Name => $queuedStates,
+					] );
+				}
+			}
+			$this->debug_info( "Queued States: " . implode( ',', $queuedStates ?: [ '*' ] ) );
+
+			$outcomes = $this->outcomes( $params );
+			if ( $outcomes ) {
+				if ( ! $this->isAllWildcard( $outcomes ) ) {
+					$tasks = $tasks->filter( [
+						Outcome::Name => $outcomes,
+					] );
+				}
+			}
+			$this->debug_info( "Outcomes: " . implode( ',', $outcomes ?: [ '*' ] ) );
 
 			$gracePeriodField = static::GracePeriodField;
-			if ( $gracePeriodField && ( $graceDate = $this->graceDate( $params ) ) ) {
-				$tasks = $tasks->filter( [
-					$gracePeriodField::field_name( ':LessThan' ) => $graceDate,
-				] );
-				$this->debug_info( "Grace Date: " . $graceDate);
+			if ( $gracePeriodField ) {
+				if ( $graceDate = $this->graceDate( $params ) ) {
+					$tasks = $tasks->filter( [
+						$gracePeriodField::field_name( ':LessThan' ) => $graceDate,
+					] );
+				}
+				$this->debug_info( "Grace Date: " . ( $graceDate ?: '*' ) );
 			}
-			$tasks = $tasks->limit( $this->batchSize( $params ) );
+
+			$limit = $this->batchSize( $params );
+			$tasks = $tasks->limit( $limit );
+			$this->debug_info( "Batch Size: " . $limit );
 		}
 
 		return $tasks;

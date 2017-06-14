@@ -2,7 +2,6 @@
 
 namespace Modular\Tasks;
 
-use Controller;
 use Modular\Fields\EndDate;
 use Modular\Models\QueuedTask;
 

@@ -165,7 +165,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 			$this->update( [
 				QueueName::Name  => $this->{QueueName::Name} ?: $this->defaultQueueName(),
 				MethodName::Name => $this->{MethodName::Name} ?: $this->defaultMethodName(),
-				QueuedDate::Name => date( 'Y-m-d h:i:s' ),
+				QueuedDate::Name => date( 'Y-m-d H:i:s' ),
 			] );
 
 			if ( $this->isDuplicate() ) {
@@ -313,7 +313,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 		$this->update( [
 			QueuedState::Name => QueuedState::Queued,
 			Outcome::Name     => Outcome::NotDetermined,
-			QueuedDate::Name  => date( 'Y-m-d h:i:s' ),
+			QueuedDate::Name  => date( 'Y-m-d H:i:s' ),
 		] )->write();
 
 		return $this;
@@ -332,7 +332,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 		$this->update( [
 			QueuedState::Name => $state,
 			Outcome::Name     => $outcome,
-			StartDate::Name   => date( 'Y-m-d h:i:s' ),
+			StartDate::Name   => date( 'Y-m-d H:i:s' ),
 		] )->write();
 
 		return $this;
@@ -351,7 +351,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 		$this->update( [
 			QueuedState::Name => $state,
 			Outcome::Name     => $outcome,
-			EndDate::Name     => date( 'Y-m-d h:i:s' ),
+			EndDate::Name     => date( 'Y-m-d H:i:s' ),
 		] )->write();
 
 		return $this;
