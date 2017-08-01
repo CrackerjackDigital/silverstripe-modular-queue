@@ -165,7 +165,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 			$this->update( [
 				QueueName::Name  => $this->{QueueName::Name} ?: $this->defaultQueueName(),
 				MethodName::Name => $this->{MethodName::Name} ?: $this->defaultMethodName(),
-				QueuedDate::Name => date( 'Y-m-d H:i:s' ),
+				QueuedDate::Name => QueuedDate::now()
 			] );
 
 			if ( $this->isDuplicate() ) {
