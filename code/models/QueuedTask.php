@@ -80,18 +80,38 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 		\Modular\Fields\MethodName::Name => true,
 	];
 
-	public function uniqueFields() {
-		if ( $fields = array_keys( array_filter( static::config()->get( 'unique_fields' ) ?: [] ) ) ) {
-			foreach ( $fields as $index => $fieldName ) {
-				if ( $this->hasOneComponent( $fieldName ) ) {
-					$fields[ $index ] = $fieldName . 'ID';
-				} else {
-					$fields[ $index ] = $fieldName;
-				}
-			}
-		}
+	/**
+	 * Write this task to a Queue in a 'ready to run' state for execution later. This
+	 * will map any incoming parameters to fields on the model via the mapParams method.
+	 *
+	 * @param array|\ArrayAccess $params
+	 *
+	 * @return \Modular\Models\QueuedTask
+	 * @throws \ValidationException
+	 */
+	public function dispatch( $params = [] ) {
+		$this->update( array_merge(
+			[   // some defaults, may be overridden by params
+			    QueueName::Name   => static::QueueName,
+			    QueuedState::Name => QueuedState::Queued,
+			],
+			$this->mapParams( $params )
+		) );
 
-		return $fields;
+		return $this->markReady();
+	}
+
+	/**
+	 * Runs the task. Dummy service interface method required as we can't have abstract models.
+	 *
+	 * @param array|\ArrayAccess $params
+	 * @param string             $resultMessage
+	 *
+	 * @return mixed
+	 * @throws \Modular\Exceptions\Exception
+	 */
+	public function execute( $params = [], &$resultMessage = '' ) {
+		throw new NotImplemented( "abstract execute method not implemented for base QueuedTask, implement one in class " . get_class( $this ) );
 	}
 
 	/**
@@ -121,6 +141,25 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 		}
 
 		return $duplicate;
+	}
+
+	/**
+	 * Return an array of fieldnames which can be used to check for duplicates of this job when queuing it
+	 *
+	 * @return array
+	 */
+	public function uniqueFields() {
+		if ( $fields = array_keys( array_filter( static::config()->get( 'unique_fields' ) ?: [] ) ) ) {
+			foreach ( $fields as $index => $fieldName ) {
+				if ( $this->hasOneComponent( $fieldName ) ) {
+					$fields[ $index ] = $fieldName . 'ID';
+				} else {
+					$fields[ $index ] = $fieldName;
+				}
+			}
+		}
+
+		return $fields;
 	}
 
 	/**
@@ -186,40 +225,6 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 */
 	protected function mapParams( $params = [] ) {
 		return $params;
-	}
-
-	/**
-	 * Write this task to a Queue in a 'ready to run' state for execution later. This
-	 * will map any incoming parameters to fields on the model via the mapParams method.
-	 *
-	 * @param array|\ArrayAccess $params
-	 *
-	 * @return \Modular\Models\QueuedTask
-	 * @throws \ValidationException
-	 */
-	public function dispatch( $params = [] ) {
-		$this->update( array_merge(
-			[   // some defaults, may be overridden by params
-			    QueueName::Name   => static::QueueName,
-			    QueuedState::Name => QueuedState::Queued,
-			],
-			$this->mapParams( $params )
-		) );
-
-		return $this->markReady();
-	}
-
-	/**
-	 * Runs the task. Dummy service interface method required as we can't have abstract models.
-	 *
-	 * @param array|\ArrayAccess $params
-	 * @param string             $resultMessage
-	 *
-	 * @return mixed
-	 * @throws \Modular\Exceptions\Exception
-	 */
-	public function execute( $params = [], &$resultMessage = '' ) {
-		throw new NotImplemented( "abstract execute method not implemented for base QueuedTask, implement one in class " . get_class( $this ) );
 	}
 
 	/**
