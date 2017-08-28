@@ -90,15 +90,18 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * @throws \ValidationException
 	 */
 	public function dispatch( $params = [] ) {
-		$this->update( array_merge(
-			[   // some defaults, may be overridden by params
-			    QueueName::Name   => static::QueueName,
-			    QueuedState::Name => QueuedState::Queued,
-			],
-			$this->mapParams( $params )
-		) );
+		if (!$this->isDuplicate()) {
+			$this->update( array_merge(
+				[   // some defaults, may be overridden by params
+				    QueueName::Name   => static::QueueName,
+				    QueuedState::Name => QueuedState::Queued,
+				],
+				$this->mapParams( $params )
+			) );
 
-		return $this->markReady();
+			$this->markReady();
+		}
+		return $this;
 	}
 
 	/**
