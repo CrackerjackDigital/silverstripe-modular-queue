@@ -90,7 +90,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * @throws \ValidationException
 	 */
 	public function dispatch( $params = [] ) {
-		if (!$this->isDuplicate()) {
+		if ( ! $this->isDuplicate() ) {
 			$this->update( array_merge(
 				[   // some defaults, may be overridden by params
 				    QueueName::Name   => static::QueueName,
@@ -101,6 +101,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 
 			$this->markReady();
 		}
+
 		return $this;
 	}
 
@@ -122,7 +123,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 	 * which have the same config.unique_fields values.
 	 */
 	public function isDuplicate() {
-		$duplicate = false;
+		$exists = false;
 
 		if ( $uniqueFields = $this->uniqueFields() ) {
 			// intersect on key so flip the array, value will come from map of model fields
@@ -134,16 +135,16 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 				$haltStates = QueuedState::halt_states();
 
 				$existing = static::get()
-				                  ->filter( $fields )
-				                  ->exclude( [
-					                  QueuedState::field_name() => $haltStates,
-				                  ] );
+					->filter( $fields )
+					->exclude( [
+						QueuedState::field_name() => $haltStates,
+					] );
 
-				$duplicate = $existing->count() > 0;
+				$exists = $existing->count() > 0;
 			}
 		}
 
-		return $duplicate;
+		return $exists;
 	}
 
 	/**
@@ -207,7 +208,7 @@ class QueuedTask extends Model implements AsyncServiceInterface, QueuedTaskInter
 			$this->update( [
 				QueueName::Name  => $this->{QueueName::Name} ?: $this->defaultQueueName(),
 				MethodName::Name => $this->{MethodName::Name} ?: $this->defaultMethodName(),
-				QueuedDate::Name => QueuedDate::now()
+				QueuedDate::Name => QueuedDate::now(),
 			] );
 
 			if ( $this->isDuplicate() ) {
